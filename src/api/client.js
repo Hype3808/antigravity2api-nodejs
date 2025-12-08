@@ -234,6 +234,15 @@ export async function getAvailableModels() {
       owned_by: 'google'
     })
     
+    // 如果启用假流模型，添加带前缀的模型副本
+    if (config.enableFakeStreaming) {
+      const fakeStreamModels = modelList.map(model => ({
+        ...model,
+        id: `假流式/${model.id}`
+      }));
+      modelList.push(...fakeStreamModels);
+    }
+    
     return {
       object: 'list',
       data: modelList

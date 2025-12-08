@@ -595,6 +595,7 @@ async function loadConfig() {
                 if (form.elements['MAX_IMAGES']) form.elements['MAX_IMAGES'].value = json.other.maxImages ?? '';
                 if (form.elements['USE_NATIVE_AXIOS']) form.elements['USE_NATIVE_AXIOS'].value = json.other.useNativeAxios ? 'true' : 'false';
                 if (form.elements['SKIP_PROJECT_ID_FETCH']) form.elements['SKIP_PROJECT_ID_FETCH'].value = json.other.skipProjectIdFetch ? 'true' : 'false';
+                if (form.elements['ENABLE_FAKE_STREAMING']) form.elements['ENABLE_FAKE_STREAMING'].value = json.other.enableFakeStreaming ? 'true' : 'false';
             }
         }
     } catch (error) {
@@ -608,7 +609,7 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     const allConfig = Object.fromEntries(formData);
     
     // 分离敏感和非敏感配置
-    const sensitiveKeys = ['API_KEY', 'ADMIN_USERNAME', 'ADMIN_PASSWORD', 'JWT_SECRET', 'PROXY', 'SYSTEM_INSTRUCTION', 'IMAGE_BASE_URL'];
+    const sensitiveKeys = ['API_KEY', 'ADMIN_USERNAME', 'ADMIN_PASSWORD', 'JWT_SECRET', 'PROXY', 'SYSTEM_INSTRUCTION', 'IMAGE_BASE_URL', 'ENABLE_FAKE_STREAMING'];
     const envConfig = {};
     const jsonConfig = {
         server: {},
@@ -638,6 +639,10 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
             else if (key === 'TIMEOUT') jsonConfig.other.timeout = parseInt(value);
             else if (key === 'MAX_IMAGES') jsonConfig.other.maxImages = parseInt(value);
             else if (key === 'SKIP_PROJECT_ID_FETCH') jsonConfig.other.skipProjectIdFetch = value === 'true';
+            else if (key === 'ENABLE_FAKE_STREAMING') {
+                envConfig[key] = value;
+                jsonConfig.other.enableFakeStreaming = value === 'true';
+            }
             else envConfig[key] = value;
         }
     });

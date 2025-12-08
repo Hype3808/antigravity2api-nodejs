@@ -60,7 +60,8 @@ const config = {
   timeout: jsonConfig.other?.timeout || 180000,
   proxy: process.env.PROXY || null,
   systemInstruction: process.env.SYSTEM_INSTRUCTION || '',
-  skipProjectIdFetch: jsonConfig.other?.skipProjectIdFetch === true
+  skipProjectIdFetch: jsonConfig.other?.skipProjectIdFetch === true,
+  enableFakeStreaming: jsonConfig.other?.enableFakeStreaming === true || process.env.ENABLE_FAKE_STREAMING === 'true'
 };
 
 log.info('✓ 配置加载成功');

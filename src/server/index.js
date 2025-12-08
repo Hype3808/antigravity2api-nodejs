@@ -110,8 +110,14 @@ app.post('/v1/chat/completions', async (req, res) => {
     if (!token) {
       throw new Error('没有可用的token，请运行 npm run login 获取token');
     }
-    const isImageModel = model.includes('-image');
-    const requestBody = generateRequestBody(messages, model, params, tools, token);
+    
+    // 检查是否是假流模型
+    const fakeStreamPrefix = '假流式/';
+    const isFakeStreamModel = model.startsWith(fakeStreamPrefix);
+    const actualModel = isFakeStreamModel ? model.slice(fakeStreamPrefix.length) : model;
+    const isImageModel = actualModel.includes('-image');
+    
+    const requestBody = generateRequestBody(messages, actualModel, params, tools, token);
     if (isImageModel) {
       requestBody.request.generationConfig={
         candidateCount: 1,
@@ -129,7 +135,33 @@ app.post('/v1/chat/completions', async (req, res) => {
     
     const { id, created } = createResponseMeta();
     
-    if (stream) {
+    // 假流模式：客户端要流式，但后端用非流式
+    if (isFakeStreamModel && stream) {
+      setStreamHeaders(res);
+      
+      // 先发送空的起始chunk (role + empty content)
+      writeStreamData(res, createStreamChunk(id, created, model, { role: 'assistant', content: '' }));
+      
+      // 从后端获取完整响应
+      const { content, toolCalls, usage } = await generateAssistantResponseNoStream(requestBody, token);
+      
+      // 持续发送空chunk来模拟流式响应，每3秒发送一个
+      const emptyChunkCount = 5; // 发送几个空chunk
+      for (let i = 0; i < emptyChunkCount; i++) {
+        await new Promise(resolve => setTimeout(resolve, 3000)); // 每3秒发送一个
+        writeStreamData(res, createStreamChunk(id, created, model, { content: '' }));
+      }
+      
+      // 最后发送实际内容
+      writeStreamData(res, createStreamChunk(id, created, model, { content }));
+      
+      if (toolCalls.length > 0) {
+        writeStreamData(res, createStreamChunk(id, created, model, { tool_calls: toolCalls }));
+      }
+      
+      writeStreamData(res, { ...createStreamChunk(id, created, model, {}, toolCalls.length > 0 ? 'tool_calls' : 'stop'), usage });
+      endStream(res);
+    } else if (stream) {
       setStreamHeaders(res);
       
       if (isImageModel) {
