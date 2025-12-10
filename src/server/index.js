@@ -7,6 +7,7 @@ import logger from '../utils/logger.js';
 import config from '../config/config.js';
 import tokenManager from '../auth/token_manager.js';
 import adminRouter from '../routes/admin.js';
+import authRouter from '../routes/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,6 +52,9 @@ app.use(express.json({ limit: config.security.maxRequestSize }));
 // 静态文件服务
 app.use('/images', express.static(path.join(__dirname, '../../public/images')));
 app.use(express.static(path.join(__dirname, '../../public')));
+
+// OAuth 认证路由
+app.use('/auth', authRouter);
 
 // 管理路由
 app.use('/admin', adminRouter);
