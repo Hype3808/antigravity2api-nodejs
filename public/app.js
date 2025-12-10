@@ -130,7 +130,10 @@ function showOAuthModal() {
                 <p>2️⃣ 完成授权后，复制浏览器地址栏的完整URL</p>
                 <p>3️⃣ 粘贴URL到下方输入框并提交</p>
             </div>
-            <button type="button" onclick="openOAuthWindow()" class="btn btn-success" style="width: 100%; margin-bottom: 16px;">🔐 打开授权页面</button>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button type="button" onclick="openOAuthWindow()" class="btn btn-success" style="flex: 1;">🔐 打开授权页面</button>
+                <button type="button" onclick="copyOAuthUrl()" class="btn btn-info" style="width: 44px; padding: 0; font-size: 18px;" title="复制授权链接">📋</button>
+            </div>
             <input type="text" id="modalCallbackUrl" placeholder="粘贴完整的回调URL (http://localhost:xxxxx/oauth-callback?code=...)">
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">取消</button>
@@ -164,14 +167,26 @@ function showManualModal() {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
 
-function openOAuthWindow() {
-    oauthPort = Math.floor(Math.random() * 10000) + 50000;
+function getOAuthUrl() {
+    if (!oauthPort) oauthPort = Math.floor(Math.random() * 10000) + 50000;
     const redirectUri = `http://localhost:${oauthPort}/oauth-callback`;
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    return `https://accounts.google.com/o/oauth2/v2/auth?` +
         `access_type=offline&client_id=${CLIENT_ID}&prompt=consent&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&` +
         `scope=${encodeURIComponent(SCOPES)}&state=${Date.now()}`;
-    window.open(authUrl, '_blank');
+}
+
+function openOAuthWindow() {
+    window.open(getOAuthUrl(), '_blank');
+}
+
+function copyOAuthUrl() {
+    const url = getOAuthUrl();
+    navigator.clipboard.writeText(url).then(() => {
+        showToast('授权链接已复制到剪贴板', 'success');
+    }).catch(() => {
+        showToast('复制失败，请手动复制', 'error');
+    });
 }
 
 async function processOAuthCallbackModal() {
