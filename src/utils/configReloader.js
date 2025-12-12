@@ -62,4 +62,8 @@ export function reloadConfig() {
     const value = process.env[env] || defaultValue;
     setNestedValue(config, target, value);
   });
+
+  // 复合字段：同时支持 config.json 与环境变量的动态生效
+  // 注意：此逻辑要与 src/config/config.js 初始化逻辑保持一致
+  config.enableFakeStreaming = jsonConfig.other?.enableFakeStreaming === true || process.env.ENABLE_FAKE_STREAMING === 'true';
 }
