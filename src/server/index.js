@@ -25,6 +25,18 @@ const setStreamHeaders = (res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  // 禁用部分反向代理/网关的缓冲（例如 Nginx）
+  res.setHeader('X-Accel-Buffering', 'no');
+};
+
+// 工具函数：尽可能立即刷新响应头/数据（在支持的情况下）
+const flushStream = (res) => {
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+  if (typeof res.flush === 'function') {
+    res.flush();
+  }
 };
 
 // 工具函数：构建流式数据块
@@ -39,6 +51,7 @@ const createStreamChunk = (id, created, model, delta, finish_reason = null) => (
 // 工具函数：写入流式数据
 const writeStreamData = (res, data) => {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
+  flushStream(res);
 };
 
 // 工具函数：结束流式响应
@@ -142,18 +155,35 @@ app.post('/v1/chat/completions', async (req, res) => {
     // 假流模式：客户端要流式，但后端用非流式
     if (isFakeStreamModel && stream) {
       setStreamHeaders(res);
+      flushStream(res);
       
       // 先发送空的起始chunk (role + empty content)
       writeStreamData(res, createStreamChunk(id, created, model, { role: 'assistant', content: '' }));
-      
-      // 从后端获取完整响应
-      const { content, toolCalls, usage } = await generateAssistantResponseNoStream(requestBody, token);
-      
-      // 持续发送空chunk来模拟流式响应，每3秒发送一个
-      const emptyChunkCount = 5; // 发送几个空chunk
-      for (let i = 0; i < emptyChunkCount; i++) {
-        await new Promise(resolve => setTimeout(resolve, 3000)); // 每3秒发送一个
+
+      // 在等待后端响应时，持续发送空chunk来模拟流式响应（每3秒一次）
+      const keepAliveIntervalMs = 3000;
+      const keepAliveTimer = setInterval(() => {
+        // 如果客户端已断开连接，避免继续写入
+        if (res.writableEnded || res.destroyed) return;
         writeStreamData(res, createStreamChunk(id, created, model, { content: '' }));
+      }, keepAliveIntervalMs);
+
+      const cleanupKeepAlive = () => {
+        clearInterval(keepAliveTimer);
+      };
+
+      req.on('close', () => {
+        cleanupKeepAlive();
+      });
+
+      // 从后端获取完整响应
+      let content;
+      let toolCalls;
+      let usage;
+      try {
+        ({ content, toolCalls, usage } = await generateAssistantResponseNoStream(requestBody, token));
+      } finally {
+        cleanupKeepAlive();
       }
       
       // 最后发送实际内容
