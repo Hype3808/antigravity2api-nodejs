@@ -634,7 +634,7 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     const allConfig = Object.fromEntries(formData);
     
     // 分离敏感和非敏感配置
-    const sensitiveKeys = ['API_KEY', 'ADMIN_USERNAME', 'ADMIN_PASSWORD', 'JWT_SECRET', 'PROXY', 'SYSTEM_INSTRUCTION', 'IMAGE_BASE_URL', 'ENABLE_FAKE_STREAMING'];
+    const sensitiveKeys = ['API_KEY', 'ADMIN_USERNAME', 'ADMIN_PASSWORD', 'JWT_SECRET', 'PROXY', 'SYSTEM_INSTRUCTION', 'IMAGE_BASE_URL'];
     const envConfig = {};
     const jsonConfig = {
         server: {},
@@ -665,7 +665,6 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
             else if (key === 'MAX_IMAGES') jsonConfig.other.maxImages = parseInt(value);
             else if (key === 'SKIP_PROJECT_ID_FETCH') jsonConfig.other.skipProjectIdFetch = value === 'true';
             else if (key === 'ENABLE_FAKE_STREAMING') {
-                envConfig[key] = value;
                 jsonConfig.other.enableFakeStreaming = value === 'true';
             }
             else envConfig[key] = value;
