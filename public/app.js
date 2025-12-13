@@ -482,7 +482,7 @@ async function loadQuotaData(refreshToken, forceRefresh = false) {
     
     try {
         const url = `/admin/tokens/${encodeURIComponent(refreshToken)}/quotas${forceRefresh ? '?refresh=true' : ''}`;
-        const response = await authFetch(url, {
+        const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
         

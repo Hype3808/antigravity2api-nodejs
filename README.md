@@ -66,6 +66,133 @@ npm start
 
 服务将在 `http://localhost:8045` 启动。
 
+## Docker 部署
+
+### 使用 Docker Compose（推荐）
+
+1. **配置环境变量**
+
+创建 `.env` 文件：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件配置必要参数。
+
+2. **启动服务**
+
+```bash
+docker-compose up -d
+```
+
+3. **查看日志**
+
+```bash
+docker-compose logs -f
+```
+
+4. **停止服务**
+
+```bash
+docker-compose down
+```
+
+### 使用 Docker
+
+1. **构建镜像**
+
+```bash
+docker build -t antigravity2api .
+```
+
+2. **运行容器**
+
+```bash
+docker run -d \
+  --name antigravity2api \
+  -p 8045:8045 \
+  -e API_KEY=sk-text \
+  -e ADMIN_USERNAME=admin \
+  -e ADMIN_PASSWORD=admin123 \
+  -e JWT_SECRET=your-jwt-secret-key \
+  -e IMAGE_BASE_URL=http://your-domain.com \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/public/images:/app/public/images \
+  -v $(pwd)/.env:/app/.env \
+  -v $(pwd)/config.json:/app/config.json \
+  antigravity2api
+```
+
+3. **查看日志**
+
+```bash
+docker logs -f antigravity2api
+```
+
+### Docker 部署说明
+
+- 数据持久化：`data/` 目录挂载到容器，保存 Token 数据
+- 图片存储：`public/images/` 目录挂载到容器，保存生成的图片
+- 配置文件：`.env` 和 `config.json` 挂载到容器，支持热更新
+- 端口映射：默认映射 8045 端口，可根据需要修改
+- 自动重启：容器异常退出会自动重启
+
+## Zeabur 部署
+
+### 使用预构建镜像部署
+
+1. **创建服务**
+
+在 Zeabur 控制台创建新服务，使用以下镜像：
+
+```
+ghcr.io/liuw1535/antigravity2api-nodejs
+```
+
+2. **配置环境变量**
+
+在服务设置中添加以下环境变量：
+
+| 环境变量 | 说明 | 示例值 |
+|--------|------|--------|
+| `API_KEY` | API 认证密钥 | `sk-your-api-key` |
+| `ADMIN_USERNAME` | 管理员用户名 | `admin` |
+| `ADMIN_PASSWORD` | 管理员密码 | `your-secure-password` |
+| `JWT_SECRET` | JWT 密钥 | `your-jwt-secret-key` |
+| `IMAGE_BASE_URL` | 图片服务基础 URL | `https://your-domain.zeabur.app` |
+
+可选环境变量：
+- `PROXY`：代理地址
+- `SYSTEM_INSTRUCTION`：系统提示词
+
+3. **配置持久化存储**
+
+在服务的「Volumes」设置中添加以下挂载点：
+
+| 挂载路径 | 说明 |
+|---------|------|
+| `/app/data` | Token 数据存储 |
+| `/app/public/images` | 生成的图片存储 |
+
+⚠️ **重要提示**：
+- 只挂载 `/app/data` 和 `/app/public/images` 这两个目录
+- 不要挂载其他目录（如 `/app/.env`、`/app/config.json` 等），否则会导致必要配置文件被清空，项目无法启动
+
+4. **绑定域名**
+
+在服务的「Networking」设置中绑定域名，然后将该域名设置到 `IMAGE_BASE_URL` 环境变量中。
+
+5. **启动服务**
+
+保存配置后，Zeabur 会自动拉取镜像并启动服务。访问绑定的域名即可使用。
+
+### Zeabur 部署说明
+
+- 使用预构建的 Docker 镜像，无需手动构建
+- 通过环境变量配置所有必要参数
+- 持久化存储确保 Token 和图片数据不丢失
+
 ## Web 管理界面
 
 服务启动后，访问 `http://localhost:8045` 即可打开 Web 管理界面。
@@ -133,14 +260,9 @@ npm start
 
 ## API 使用
 
-### 获取模型列表
+服务提供 OpenAI 兼容的 API 接口，详细使用说明请查看 [API.md](API.md)。
 
-```bash
-curl http://localhost:8045/v1/models \
-  -H "Authorization: Bearer sk-text"
-```
-
-### 聊天补全（流式）
+### 快速测试
 
 ```bash
 curl http://localhost:8045/v1/chat/completions \
@@ -148,93 +270,7 @@ curl http://localhost:8045/v1/chat/completions \
   -H "Authorization: Bearer sk-text" \
   -d '{
     "model": "gemini-2.0-flash-exp",
-    "messages": [{"role": "user", "content": "你好"}],
-    "stream": true
-  }'
-```
-
-### 聊天补全（非流式）
-
-```bash
-curl http://localhost:8045/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-text" \
-  -d '{
-    "model": "gemini-2.0-flash-exp",
-    "messages": [{"role": "user", "content": "你好"}],
-    "stream": false
-  }'
-```
-
-### 工具调用示例
-
-```bash
-curl http://localhost:8045/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-text" \
-  -d '{
-    "model": "gemini-2.0-flash-exp",
-    "messages": [{"role": "user", "content": "北京天气怎么样"}],
-    "tools": [{
-      "type": "function",
-      "function": {
-        "name": "get_weather",
-        "description": "获取天气信息",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "location": {"type": "string", "description": "城市名称"}
-          }
-        }
-      }
-    }]
-  }'
-```
-
-### 图片输入示例
-
-支持 Base64 编码的图片输入，兼容 OpenAI 的多模态格式：
-
-```bash
-curl http://localhost:8045/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-text" \
-  -d '{
-    "model": "gemini-2.0-flash-exp",
-    "messages": [{
-      "role": "user",
-      "content": [
-        {"type": "text", "text": "这张图片里有什么？"},
-        {
-          "type": "image_url",
-          "image_url": {
-            "url": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
-          }
-        }
-      ]
-    }],
-    "stream": true
-  }'
-```
-
-支持的图片格式：
-- JPEG/JPG (`data:image/jpeg;base64,...`)
-- PNG (`data:image/png;base64,...`)
-- GIF (`data:image/gif;base64,...`)
-- WebP (`data:image/webp;base64,...`)
-
-### 图片生成示例
-
-支持使用 大/小香蕉 模型生成图片，生成的图片会以 Markdown 格式返回：
-
-```bash
-curl http://localhost:8045/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-text" \
-  -d '{
-    "model": "gemimi-3.0-pro-image",
-    "messages": [{"role": "user", "content": "画一只可爱的猫"}],
-    "stream": false
+    "messages": [{"role": "user", "content": "你好"}]
   }'
 ```
 

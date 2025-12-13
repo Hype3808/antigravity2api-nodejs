@@ -154,16 +154,30 @@ function generateGenerationConfig(parameters, enableThinking, actualModelName){
   }
   return generationConfig
 }
+const EXCLUDED_KEYS = new Set(['$schema', 'additionalProperties', 'minLength', 'maxLength', 'minItems', 'maxItems', 'uniqueItems']);
+
+function cleanParameters(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  const cleaned = Array.isArray(obj) ? [] : {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (EXCLUDED_KEYS.has(key)) continue;
+    cleaned[key] = (value && typeof value === 'object') ? cleanParameters(value) : value;
+  }
+  
+  return cleaned;
+}
+
 function convertOpenAIToolsToAntigravity(openaiTools){
   if (!openaiTools || openaiTools.length === 0) return [];
   return openaiTools.map((tool)=>{
-    delete tool.function.parameters.$schema;
     return {
       functionDeclarations: [
         {
           name: tool.function.name,
           description: tool.function.description,
-          parameters: tool.function.parameters
+          parameters: cleanParameters(tool.function.parameters)
         }
       ]
     }
