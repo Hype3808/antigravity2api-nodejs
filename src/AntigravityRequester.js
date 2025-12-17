@@ -26,14 +26,14 @@ class antigravityRequester {
         const arch = os.arch();
         
         let filename;
-        if (platform === 'win32') {
+        if (platform === 'win32' && arch === "x64") {
             filename = 'antigravity_requester_windows_amd64.exe';
-        } else if (platform === 'android') {
+        } else if (platform === 'android' && arch === "arm64") {
             filename = 'antigravity_requester_android_arm64';
-        } else if (platform === 'linux') {
+        } else if (platform === 'linux' && arch === "x64") {
             filename = 'antigravity_requester_linux_amd64';
         } else {
-            throw new Error(`Unsupported platform: ${platform}`);
+            throw new Error(`Unsupported platform: ${platform}+${arch}`);
         }
         
         const binPath = this.binPath || path.join(__dirname, 'bin');
