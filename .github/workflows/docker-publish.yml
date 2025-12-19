@@ -76,6 +76,7 @@ jobs:
           tags: |
             type=ref,event=branch,suffix=${{ matrix.tag_suffix }}
             type=raw,value=binary${{ matrix.tag_suffix }},enable=true
+            type=raw,value=latest${{ matrix.tag_suffix }},enable=true
 
       - name: Build and push (${{ matrix.arch }})
         uses: docker/build-push-action@v5
@@ -84,6 +85,8 @@ jobs:
           file: ./Dockerfile.binary
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
