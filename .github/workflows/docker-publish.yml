@@ -62,7 +62,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: Hype3808
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.CR_PAT }}
 
       - name: Extract metadata
         id: meta
