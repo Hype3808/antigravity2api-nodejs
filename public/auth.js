@@ -29,14 +29,14 @@ function showInstructionModal(callback) {
   confirmBtn.classList.remove('active');
   confirmBtn.textContent = '请仔细阅读说明...';
   
-  let timeLeft = 30;
+  let timeLeft = 10;
   timerProgress.style.width = '0%';
-  timerText.textContent = '请认真阅读以上步骤 (30秒)';
+  timerText.textContent = '请认真阅读以上步骤 (10秒)';
   if (timerInterval) clearInterval(timerInterval);
   
   timerInterval = setInterval(() => {
     timeLeft--;
-    const progress = ((30 - timeLeft) / 30) * 100;
+    const progress = ((10 - timeLeft) / 10) * 100;
     timerProgress.style.width = progress + '%';
     timerText.textContent = '请认真阅读以上步骤 (' + timeLeft + '秒)';
     
