@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>OAuth 登录</title>
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+  <!-- Instruction Modal -->
+  <div id="instructionModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title">📖 重要说明</div>
+      <div class="modal-steps">
+        <strong>🔐 OAuth 授权流程：</strong>
+        <ol>
+          <li><strong>打开授权页面</strong> - 在新标签页中登录 Google 账号</li>
+          <li><strong>完成授权</strong> - 允许应用访问您的账号信息</li>
+          <li><strong>复制回调URL</strong> - 授权后会跳转到一个页面，复制该页面的完整地址栏URL（http://localhost:3000/auth/callback?state=...&code=...）</li>
+          <li><strong>粘贴URL</strong> - 返回本页面，将URL粘贴到下方输入框</li>
+          <li><strong>提交处理</strong> - 点击提交按钮，系统自动保存Token</li>
+        </ol>
+      </div>
+      <div class="timer-bar">
+        <div id="timerProgress" class="timer-progress"></div>
+      </div>
+      <div id="timerText" class="timer-text">请认真阅读以上步骤 (30秒)</div>
+      <button id="confirmBtn" class="modal-btn" onclick="closeInstructionModal()">
+        请仔细阅读说明...
+      </button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="icon">🔐</div>
+    <h1>添加新Token</h1>
+    <p class="subtitle">通过 Google OAuth 授权登录</p>
+    
+    <div style="display: flex; gap: 8px;">
+      <button id="oauthBtn" onclick="openOAuthWindow()" class="btn" style="flex: 1;">
+        <span>🔐</span>
+        <span>打开授权页面</span>
+      </button>
+      <button id="copyBtn" onclick="copyAuthUrl()" class="copy-btn btn" style="width: 56px; padding: 0; font-size: 18px; flex-shrink: 0;" title="复制授权链接">
+        📋
+      </button>
+    </div>
+    
+    <style>
+      @media (max-width: 640px) {
+        #copyBtn {
+          width: 48px !important;
+          font-size: 16px !important;
+        }
+      }
+    </style>
+    
+    <div class="input-group">
+      <label for="callbackUrl">📎 粘贴回调URL</label>
+      <input 
+        type="text" 
+        id="callbackUrl" 
+        placeholder="http://localhost:3000/auth/callback?state=...&code=..."
+      >
+    </div>
+    
+    <button onclick="processCallback()" class="btn submit-btn" id="submitBtn">
+      ✅ 提交
+    </button>
+  </div>
+
+  <script src="auth.js"></script>
+</body>
+</html>

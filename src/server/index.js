@@ -10,6 +10,7 @@ import config from '../config/config.js';
 import tokenManager from '../auth/token_manager.js';
 import adminRouter from '../routes/admin.js';
 import sdRouter from '../routes/sd.js';
+import authRouter from '../routes/auth.js';
 import memoryManager, { MemoryPressure, registerMemoryPoolCleanup } from '../utils/memoryManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -108,6 +109,9 @@ const createHeartbeat = (res) => {
 const SSE_PREFIX = Buffer.from('data: ');
 const SSE_SUFFIX = Buffer.from('\n\n');
 const SSE_DONE = Buffer.from('data: [DONE]\n\n');
+
+const FAKE_STREAM_PREFIX = '假流式/';
+const FAKE_STREAM_KEEPALIVE_MS = 3000;
 
 // 工具函数：生成响应元数据
 const createResponseMeta = () => ({
@@ -209,6 +213,9 @@ app.use(express.json({ limit: config.security.maxRequestSize }));
 app.use('/images', express.static(path.join(publicDir, 'images')));
 app.use(express.static(publicDir));
 
+// OAuth 页面和简易登录流程
+app.use('/auth', authRouter);
+
 // 管理路由
 app.use('/admin', adminRouter);
 
@@ -288,8 +295,12 @@ app.post('/v1/chat/completions', async (req, res) => {
     if (!token) {
       throw new Error('没有可用的token，请运行 npm run login 获取token');
     }
-    const isImageModel = model.includes('-image');
-    const requestBody = generateRequestBody(messages, model, params, tools, token);
+    const rawModel = model || '';
+    const isFakeStreamModel = config.enableFakeStreaming && rawModel.startsWith(FAKE_STREAM_PREFIX);
+    const actualModel = isFakeStreamModel ? rawModel.slice(FAKE_STREAM_PREFIX.length) : rawModel;
+    const responseModel = rawModel || actualModel;
+    const isImageModel = actualModel.includes('-image');
+    const requestBody = generateRequestBody(messages, actualModel, params, tools, token);
     if (isImageModel) {
       prepareImageRequest(requestBody);
     }
@@ -306,14 +317,55 @@ app.post('/v1/chat/completions', async (req, res) => {
       const heartbeatTimer = createHeartbeat(res);
 
       try {
-        if (isImageModel) {
+        if (isFakeStreamModel) {
+          let sentRoleChunk = false;
+          // 立即发送一个空块（带 role），随后每 3 秒发送一次空块，保持符合 OpenAI SSE 结构
+          writeStreamData(res, createStreamChunk(id, created, responseModel, { role: 'assistant', content: '' }));
+          sentRoleChunk = true;
+          const keepAliveTimer = setInterval(() => {
+            if (res.writableEnded || res.destroyed) return;
+            writeStreamData(res, createStreamChunk(id, created, responseModel, sentRoleChunk ? { content: '' } : { role: 'assistant', content: '' }));
+            sentRoleChunk = true;
+          }, FAKE_STREAM_KEEPALIVE_MS);
+
+          const cleanupTimers = () => clearInterval(keepAliveTimer);
+          res.on('close', cleanupTimers);
+          res.on('finish', cleanupTimers);
+
+          try {
+            const { content, reasoningContent, reasoningSignature, toolCalls, usage } = await with429Retry(
+              () => generateAssistantResponseNoStream(requestBody, token),
+              safeRetries,
+              'chat.fake_stream '
+            );
+
+            if (reasoningContent) {
+              writeStreamData(res, createStreamChunk(id, created, responseModel, { reasoning_content: reasoningContent, thoughtSignature: reasoningSignature }));
+            }
+
+            if (content) {
+              writeStreamData(res, createStreamChunk(id, created, responseModel, { content }));
+            }
+
+            if (toolCalls.length > 0) {
+              const toolCallsWithIndex = toolCalls.map((toolCall, index) => ({ index, ...toolCall }));
+              writeStreamData(res, createStreamChunk(id, created, responseModel, { tool_calls: toolCallsWithIndex }));
+            }
+
+            writeStreamData(res, { ...createStreamChunk(id, created, responseModel, {}, toolCalls.length > 0 ? 'tool_calls' : 'stop'), usage });
+            cleanupTimers();
+          } catch (error) {
+            cleanupTimers();
+            throw error;
+          }
+        } else if (isImageModel) {
           const { content, usage } = await with429Retry(
             () => generateAssistantResponseNoStream(requestBody, token),
             safeRetries,
             'chat.stream.image '
           );
-          writeStreamData(res, createStreamChunk(id, created, model, { content }));
-          writeStreamData(res, { ...createStreamChunk(id, created, model, {}, 'stop'), usage });
+          writeStreamData(res, createStreamChunk(id, created, responseModel, { content }));
+          writeStreamData(res, { ...createStreamChunk(id, created, responseModel, {}, 'stop'), usage });
         } else {
           let hasToolCall = false;
           let usageData = null;
@@ -327,22 +379,22 @@ app.post('/v1/chat/completions', async (req, res) => {
                 if (data.thoughtSignature) {
                   delta.thoughtSignature = data.thoughtSignature;
                 }
-                writeStreamData(res, createStreamChunk(id, created, model, delta));
+                writeStreamData(res, createStreamChunk(id, created, responseModel, delta));
               } else if (data.type === 'tool_calls') {
                 hasToolCall = true;
                 const toolCallsWithIndex = data.tool_calls.map((toolCall, index) => ({ index, ...toolCall }));
                 const delta = { tool_calls: toolCallsWithIndex };
-                writeStreamData(res, createStreamChunk(id, created, model, delta));
+                writeStreamData(res, createStreamChunk(id, created, responseModel, delta));
               } else {
                 const delta = { content: data.content };
-                writeStreamData(res, createStreamChunk(id, created, model, delta));
+                writeStreamData(res, createStreamChunk(id, created, responseModel, delta));
               }
             }),
             safeRetries,
             'chat.stream '
           );
 
-          writeStreamData(res, { ...createStreamChunk(id, created, model, {}, hasToolCall ? 'tool_calls' : 'stop'), usage: usageData });
+          writeStreamData(res, { ...createStreamChunk(id, created, responseModel, {}, hasToolCall ? 'tool_calls' : 'stop'), usage: usageData });
         }
 
         clearInterval(heartbeatTimer);
@@ -373,7 +425,7 @@ app.post('/v1/chat/completions', async (req, res) => {
         id,
         object: 'chat.completion',
         created,
-        model,
+        model: responseModel,
         choices: [{
           index: 0,
           message,

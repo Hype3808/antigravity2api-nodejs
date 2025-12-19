@@ -15,15 +15,17 @@ class OAuthManager {
   /**
    * 生成授权URL
    */
-  generateAuthUrl(port) {
+  generateAuthUrl(port, redirectPath = '/oauth-callback', state = null) {
+    const finalState = state || this.state || crypto.randomUUID();
+    this.state = finalState;
     const params = new URLSearchParams({
       access_type: 'offline',
       client_id: OAUTH_CONFIG.CLIENT_ID,
       prompt: 'consent',
-      redirect_uri: `http://localhost:${port}/oauth-callback`,
+      redirect_uri: `http://localhost:${port}${redirectPath}`,
       response_type: 'code',
       scope: OAUTH_SCOPES.join(' '),
-      state: this.state
+      state: finalState
     });
     return `${OAUTH_CONFIG.AUTH_URL}?${params.toString()}`;
   }
@@ -31,12 +33,12 @@ class OAuthManager {
   /**
    * 交换授权码获取Token
    */
-  async exchangeCodeForToken(code, port) {
+  async exchangeCodeForToken(code, port, redirectPath = '/oauth-callback') {
     const postData = new URLSearchParams({
       code,
       client_id: OAUTH_CONFIG.CLIENT_ID,
       client_secret: OAUTH_CONFIG.CLIENT_SECRET,
-      redirect_uri: `http://localhost:${port}/oauth-callback`,
+      redirect_uri: `http://localhost:${port}${redirectPath}`,
       grant_type: 'authorization_code'
     });
     
@@ -111,9 +113,9 @@ class OAuthManager {
   /**
    * 完整的OAuth认证流程：交换Token -> 获取邮箱 -> 资格校验
    */
-  async authenticate(code, port) {
+  async authenticate(code, port, redirectPath = '/oauth-callback') {
     // 1. 交换授权码获取Token
-    const tokenData = await this.exchangeCodeForToken(code, port);
+    const tokenData = await this.exchangeCodeForToken(code, port, redirectPath);
     
     if (!tokenData.access_token) {
       throw new Error('Token交换失败：未获取到access_token');

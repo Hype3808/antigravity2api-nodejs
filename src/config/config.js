@@ -147,7 +147,8 @@ export function buildConfig(jsonConfig) {
     proxy: getProxyConfig(),
     systemInstruction: process.env.SYSTEM_INSTRUCTION || '',
     skipProjectIdFetch: jsonConfig.other?.skipProjectIdFetch === true,
-    useContextSystemPrompt: jsonConfig.other?.useContextSystemPrompt === true
+    useContextSystemPrompt: jsonConfig.other?.useContextSystemPrompt === true,
+    enableFakeStreaming: jsonConfig.other?.enableFakeStreaming === true || process.env.ENABLE_FAKE_STREAMING === 'true'
   };
 }
 

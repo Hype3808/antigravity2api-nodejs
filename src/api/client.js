@@ -47,6 +47,8 @@ const DEFAULT_MODELS = [
   'chat_23310'
 ];
 
+const FAKE_STREAM_PREFIX = '假流式/';
+
 // 生成默认模型列表响应
 function getDefaultModelList() {
   const created = Math.floor(Date.now() / 1000);
@@ -447,6 +449,15 @@ export async function getAvailableModels() {
         owned_by: 'google'
       });
     }
+  }
+
+  // 追加假流模型（用于客户端期望流式，但后端采用非流式返回）
+  if (config.enableFakeStreaming) {
+    const fakeModels = modelList.map(model => ({
+      ...model,
+      id: `${FAKE_STREAM_PREFIX}${model.id}`
+    }));
+    modelList.push(...fakeModels);
   }
   
   const result = {
